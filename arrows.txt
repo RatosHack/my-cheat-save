@@ -1,0 +1,269 @@
+================================================================
+ARROWS FUNCTION — FULL CODE REFERENCE
+================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. ПЕРЕМЕННЫЕ (esp.mm)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// Off-screen arrows
+volatile bool  esp_arrows_enabled   = false;
+volatile float esp_arrows_r         = 1.0f;
+volatile float esp_arrows_g         = 1.0f;
+volatile float esp_arrows_b         = 1.0f;
+volatile float esp_arrows_margin    = 60.0f;
+volatile bool  esp_arrows_outline   = false;
+volatile float esp_arrows_outline_r = 0.0f;
+volatile float esp_arrows_outline_g = 0.0f;
+volatile float esp_arrows_outline_b = 0.0f;
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. EXTERN ОБЪЯВЛЕНИЯ (tt.h)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+extern volatile bool  esp_arrows_enabled;
+extern volatile float esp_arrows_r;
+extern volatile float esp_arrows_g;
+extern volatile float esp_arrows_b;
+extern volatile float esp_arrows_margin;
+extern volatile bool  esp_arrows_outline;
+extern volatile float esp_arrows_outline_r;
+extern volatile float esp_arrows_outline_g;
+extern volatile float esp_arrows_outline_b;
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. СВОЙСТВА ESP_View (esp.mm — @interface ESP_View)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@property (nonatomic, strong) CAShapeLayer *arrowsLayer;
+@property (nonatomic, strong) CAShapeLayer *arrowsOutlineLayer;
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. ИНИЦИАЛИЗАЦИЯ СЛОЁВ (esp.mm — initWithFrame)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    self.arrowsOutlineLayer = [CAShapeLayer layer];
+    self.arrowsOutlineLayer.fillColor   = [UIColor blackColor].CGColor;
+    self.arrowsOutlineLayer.strokeColor = [UIColor clearColor].CGColor;
+    self.arrowsOutlineLayer.lineWidth   = 0;
+    [self.layer addSublayer:self.arrowsOutlineLayer];
+
+    self.arrowsLayer = [CAShapeLayer layer];
+    self.arrowsLayer.fillColor   = [UIColor whiteColor].CGColor;
+    self.arrowsLayer.strokeColor = [UIColor clearColor].CGColor;
+    self.arrowsLayer.lineWidth   = 0;
+    [self.layer addSublayer:self.arrowsLayer];
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. ОЧИСТКА (esp.mm — clearAllBoxes)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    self.arrowsLayer.path        = nil;
+    self.arrowsOutlineLayer.path = nil;
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. РАННИЙ ВЫХОД update_data (esp.mm)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    if (!esp_box_enabled && ... && !esp_arrows_enabled) {
+        [self clearAllBoxes];
+        ...
+        return;
+    }
+
+    // Второй ранний выход:
+    if (!drawBoxes && !drawLines && ... && !esp_arrows_enabled) {
+        [self clearAllBoxes];
+        ...
+        return;
+    }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. ОТРИСОВКА (esp.mm — update_data, после основного цикла игроков)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+            // ── Off-screen arrows ──────────────────────────────────────────
+            [CATransaction begin];
+            [CATransaction setDisableActions:YES];
+            if (esp_arrows_enabled) {
+                UIBezierPath *arrowPath = [UIBezierPath bezierPath];
+                CGFloat margin = esp_arrows_margin;
+                CGFloat ah = 28.0f;  // длина треугольника
+                CGFloat aw = 10.0f;  // полуширина основания
+                CGFloat cx = w / 2.0f, cy = h / 2.0f;
+
+                for (int i = 0; i < capacity; i++) {
+                    mach_vm_address_t player = players[i];
+                    if (player < 0x1000000 || player == localPlayer) continue;
+
+                    // Пропускаем тимейтов
+                    if (esp_team_check && GetPlayerTeamAim(player, so2_task) == localTeam) continue;
+
+                    // Читаем позицию (те же офсеты что у боксов)
+                    mach_vm_address_t mc = Read<mach_vm_address_t>(player + 0x98, so2_task);
+                    if (mc < 0x1000000) continue;
+                    mach_vm_address_t md = Read<mach_vm_address_t>(mc + 0xB0, so2_task);
+                    if (md < 0x1000000) continue;
+                    Vector3 pos = Read<Vector3>(md + 0x44, so2_task);
+                    if (pos.x == 0 && pos.y == 0 && pos.z == 0) continue;
+
+                    // Проецируем — стрелка только для игроков ВНЕ экрана
+                    Vector3 sp = WorldToScreen(pos, viewMatrix, w, h);
+                    BOOL onScreen = (sp.z > 0.01f && sp.x >= 0 && sp.x <= w && sp.y >= 0 && sp.y <= h);
+                    if (onScreen) continue;
+
+                    // Направление через сырые компоненты матрицы (работает и за камерой)
+                    float rawX = (viewMatrix.m11 * pos.x) + (viewMatrix.m21 * pos.y) + (viewMatrix.m31 * pos.z) + viewMatrix.m41;
+                    float rawY = (viewMatrix.m12 * pos.x) + (viewMatrix.m22 * pos.y) + (viewMatrix.m32 * pos.z) + viewMatrix.m42;
+                    float rawW = (viewMatrix.m14 * pos.x) + (viewMatrix.m24 * pos.y) + (viewMatrix.m34 * pos.z) + viewMatrix.m44;
+
+                    CGFloat dx, dy;
+                    if (rawW < 0) {
+                        dx =  rawX;   // за камерой
+                        dy = -rawY;
+                    } else {
+                        dx = rawX;
+                        dy = -rawY;
+                    }
+                    CGFloat len = sqrtf(dx*dx + dy*dy);
+                    if (len < 0.001f) continue;
+                    dx /= len; dy /= len;
+
+                    // Позиция стрелки у края экрана с отступом margin
+                    CGFloat tx = cx + dx * (w / 2.0f - margin);
+                    CGFloat ty = cy + dy * (h / 2.0f - margin);
+                    tx = fmaxf(margin, fminf(w - margin, tx));
+                    ty = fmaxf(margin, fminf(h - margin, ty));
+
+                    // Вращаем треугольник в направлении игрока
+                    CGFloat angle = atan2f(dy, dx);
+                    CGAffineTransform xf = CGAffineTransformMakeTranslation(tx, ty);
+                    xf = CGAffineTransformRotate(xf, angle);
+
+                    // Вытянутый треугольник: острие вперёд, основание сзади
+                    CGPoint tip = CGPointApplyAffineTransform(CGPointMake( ah,    0), xf);
+                    CGPoint bl  = CGPointApplyAffineTransform(CGPointMake(-ah/2,  aw), xf);
+                    CGPoint br  = CGPointApplyAffineTransform(CGPointMake(-ah/2, -aw), xf);
+
+                    [arrowPath moveToPoint:tip];
+                    [arrowPath addLineToPoint:bl];
+                    [arrowPath addLineToPoint:br];
+                    [arrowPath closePath];
+                }
+
+                // Применяем цвет и путь
+                self.arrowsLayer.fillColor = [UIColor colorWithRed:esp_arrows_r
+                                                             green:esp_arrows_g
+                                                              blue:esp_arrows_b
+                                                             alpha:1.0].CGColor;
+                self.arrowsLayer.path = arrowPath.CGPath;
+
+                // Обводка
+                if (esp_arrows_outline) {
+                    self.arrowsOutlineLayer.fillColor   = [UIColor clearColor].CGColor;
+                    self.arrowsOutlineLayer.strokeColor = [UIColor colorWithRed:esp_arrows_outline_r
+                                                                          green:esp_arrows_outline_g
+                                                                           blue:esp_arrows_outline_b
+                                                                          alpha:1.0].CGColor;
+                    self.arrowsOutlineLayer.lineWidth   = 3.0f;
+                    self.arrowsOutlineLayer.lineJoin    = kCALineJoinRound;
+                    self.arrowsOutlineLayer.path        = arrowPath.CGPath;
+                } else {
+                    self.arrowsOutlineLayer.path = nil;
+                }
+            } else {
+                self.arrowsLayer.path        = nil;
+                self.arrowsOutlineLayer.path = nil;
+            }
+            [CATransaction commit];
+            // ──────────────────────────────────────────────────────────────
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. UI МЕНЮ (tt.mm — ESP вкладка, левая колонка)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+            // Toggle Arrows
+            _arrowsCheckmark = addLeft(@(OBF("Arrows")), @selector(arrowsTapped), esp_arrows_enabled);
+
+            // Слайдер Arrow Margin
+            UILabel *marginLbl = ...;
+            marginLbl.text = [NSString stringWithFormat:@"Margin: %.0f", esp_arrows_margin];
+            _arrowsMarginSlider = [[CustomSliderView alloc] initWithFrame:... min:20 max:200 current:esp_arrows_margin];
+            _arrowsMarginSlider.valueChanged = ^(float v) {
+                esp_arrows_margin = v;
+                marginLbl.text = [NSString stringWithFormat:@"Margin: %.0f", v];
+            };
+
+            // Правая колонка — цвет стрелок
+            addRight(@(OBF("Arrows color")), &esp_arrows_r, &esp_arrows_g, &esp_arrows_b);
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. ACTION МЕТОДЫ (tt.mm)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- (void)arrowsTapped {
+    esp_arrows_enabled = !esp_arrows_enabled;
+    [self animateCheckmark:_arrowsCheckmark show:esp_arrows_enabled];
+    [self setColorSwatch:_arrowsCheckmark visible:esp_arrows_enabled];
+}
+
+- (void)arrowsOutlineTapped {
+    esp_arrows_outline = !esp_arrows_outline;
+    [self animateCheckmark:_arrowsOutlineCheckmark show:esp_arrows_outline];
+    [self setColorSwatch:_arrowsOutlineCheckmark visible:esp_arrows_outline];
+}
+
+- (void)addArrowsMarginSliderAtY:(CGFloat)y {
+    CGFloat w = _innerContent.bounds.size.width;
+    _arrowsMarginValueLabel = [[UILabel alloc] initWithFrame:CGRectMake(w - 50, y, 44, 20)];
+    _arrowsMarginValueLabel.text = [NSString stringWithFormat:@"%.0f", esp_arrows_margin];
+    ...
+    _arrowsMarginSlider = [[CustomSliderView alloc] initWithFrame:CGRectMake(15, y + 18, w - 30, 30)
+                                                              min:20.0f max:200.0f current:esp_arrows_margin];
+    _arrowsMarginSlider.valueChanged = ^(float newValue) {
+        esp_arrows_margin = newValue;
+        strongSelf->_arrowsMarginValueLabel.text = [NSString stringWithFormat:@"%.0f", newValue];
+    };
+    [_innerContent addSubview:_arrowsMarginSlider];
+}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. СОХРАНЕНИЕ В КОНФИГ (cfg.mm)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    // cfg_create:
+    d[@"arr_en"]   = @((BOOL)esp_arrows_enabled);
+    d[@"arr_ol"]   = @((BOOL)esp_arrows_outline);
+    d[@"arr_marg"] = @((float)esp_arrows_margin);
+    d[@"ar"]       = @((float)esp_arrows_r);
+    d[@"ag"]       = @((float)esp_arrows_g);
+    d[@"ab"]       = @((float)esp_arrows_b);
+
+    // cfg_load:
+    if (d[@"arr_en"])   esp_arrows_enabled = [d[@"arr_en"] boolValue];
+    if (d[@"arr_ol"])   esp_arrows_outline = [d[@"arr_ol"] boolValue];
+    if (d[@"arr_marg"]) esp_arrows_margin  = [d[@"arr_marg"] floatValue];
+    if (d[@"ar"])       esp_arrows_r       = [d[@"ar"] floatValue];
+    if (d[@"ag"])       esp_arrows_g       = [d[@"ag"] floatValue];
+    if (d[@"ab"])       esp_arrows_b       = [d[@"ab"] floatValue];
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11. IVARS MenuView (tt.mm)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    CAShapeLayer     *_arrowsCheckmark;
+    CAShapeLayer     *_arrowsOutlineCheckmark;
+    CustomSliderView *_arrowsMarginSlider;
+    UILabel          *_arrowsMarginValueLabel;
+
+================================================================

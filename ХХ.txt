@@ -1,0 +1,27 @@
+
+///байпас на новую версию стандофа
+//обходит бан за валлшот и другой рейдж
+void sub_17A3B0()
+{
+    uintptr_t v0 = inst(libbas + swinscate(131067288));
+    uintptr_t v1 = g.memory->read<uintptr_t>(v0 + swinscate(0x88));
+    g.memory->read<bool>(v1 + 0x11, true);
+
+    uintptr_t v2 = g.memory->read<uintptr_t>(v0 + swinscate(0x24));
+    float v3 = g.memory->read<float>(v2 + swinscate(0x30));
+    int v4 = g.memory->read<int>(v2 + swinscate(0x1C));
+    uint64_t _DAT_0x60 = g.memory->read<uint64_t>(v1 + swinscate(0x60));
+    bool unk_flag = g.memory->read<bool>(v2 + swinscate(0x14));
+    float unk_f = g.memory->read<float>(v1 + swinscate(0x5C));
+    uint32_t unk_hash = g.memory->read<uint32_t>(v2 + swinscate(0xA4));
+
+    g.memory->write<bool>(v1 + 0x12, true);
+    g.memory->write<bool>(v1 + 0x13, true);
+    g.memory->write<bool>(v2 + 0x15, true);
+    g.memory->write<float>(v1 + 0x6C, 1.0f);
+    g.memory->write<float>(v2 + 0x44, 9999.0f); //time detect
+    g.memory->write<int>(v1 + 0x20, 0);
+    g.memory->write<float>(v0 + 0x88, 0.0f);
+    g.memory->write<bool>(v0 + 0x42, true);
+    g.memory->write<uintptr_t>(v0 + 0x70, 0);
+}
