@@ -1,0 +1,18 @@
+{
+  "project": "мой читсохранение",
+  "platform": "ios",
+  "github": {
+    "owner": "RatosHack",
+    "repo": "my-cheat-save"
+  },
+  "provider": "github",
+  "codemagic": {},
+  "bitrise": {},
+  "ios": {},
+  "flutter": {
+    "watch": {}
+  },
+  "reactNative": {},
+  "kmp": {},
+  "mobai": {}
+}
